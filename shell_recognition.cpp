@@ -16,6 +16,7 @@ const std::vector<int> HORIZONTAL_FILTER = {-1,-1,-1,
 											-1,-1,-1};
 
 const std::vector<int> HORIZONTAL_FILTER2 = {2,2,2,2,2,2,2};
+const int MIN_THICKNESS = 3;
 
 void treshold(cv::Mat& inImg, cv::Mat& outImg) {
 	CV_Assert(inImg.depth() != sizeof(uchar));
@@ -58,7 +59,7 @@ std::vector<std::vector<int>> find_horizontal_lines(cv::Mat& inImg, cv::Mat& out
 			} else if (line_begin != -1) {
 				last_pixel_ok = 0;
 				// TODO ogarniac ten treshold automatycznie
-				if (line_length > 20) {
+				if (line_length > 5) {
 					std::vector<int> line;
 					line.push_back(i);
 					line.push_back(line_begin);
@@ -99,7 +100,8 @@ std::vector<int> get_logos_possible_borders(std::vector<std::vector<int>> lines)
 			search_end = 1;
 		}
 		std::cout << "Loop" << std::endl;
-		for (int i = 0; i < lines.size(); ++i) {
+		int i = 0;
+		for (i = 0; i < lines.size(); ++i) {
 			if (start_flag == -1) {
 				tmp_length = lines[i][2];
 				tmp_begin = lines[i][1];
@@ -115,19 +117,19 @@ std::vector<int> get_logos_possible_borders(std::vector<std::vector<int>> lines)
 				tmp_row = lines[i][0];
 				tmp_thickness++;
 			}
-			if (tmp_thickness > 5) {
-			   	search_end = 1;
-			} else {
-				iter = i+1;
-				start_flag = 0;
-			}
+		}
+		if (tmp_thickness > MIN_THICKNESS) {
+		   	search_end = 1;
+		} else {
+			iter = i+1;
+			start_flag = 0;
 		}
 		// ogarnac przypadek kiedy na jednej linii sa dwa prawdopodobne loga
 		// (czyli tu else w trakcie, albo kolejnego szukac w liniach ponizej)
 
 	}
 	std::vector<int> b_rbl_tr;
-	if (tmp_thickness < 5) {
+	if (tmp_thickness < MIN_THICKNESS) {
 		return b_rbl_tr;
 	}
 	std::cout << " " << std::endl;
@@ -140,18 +142,17 @@ std::vector<int> get_logos_possible_borders(std::vector<std::vector<int>> lines)
 	std::cout << "Lower row bound: " << lower_row_bound << std::endl;
 	std::cout << "Upper row bound: " << upper_row_bound << std::endl;
 	// bottom_row_begin_length_tmp_row
-	for (int i = 0; i < lines.size(); ++i) {
-		//int double_line = 0;
-		//if (lines[i][0] == lines[i+1][0] && lines[i+1][1] < (lines[i][1] + lines[i][2] * 1.5)) {
-		//	double_line = lines[i][2] + lines[i+1][2];
-		//} else {
-		//	double_line = lines[i][2];
-		//}
+	for (int i = 0; i < lines.size()-1; ++i) {
+		int double_line = 0;
+		if (lines[i][0] == lines[i+1][0] && lines[i+1][1] < (lines[i][1] + lines[i][2] * 1.5)) {
+			double_line = lines[i][2] + lines[i+1][2];
+		} else {
+			double_line = lines[i][2];
+		}
 		if (lines[i][0] > (lower_row_bound) /*  && lines[i][0] < (upper_row_bound)*/ &&
 			   	lines[i][1] > (tmp_begin - tmp_begin*20/100) &&
 				lines[i][1] < (tmp_begin + tmp_begin*10/100) &&
-			   	//double_line > tmp_length) {
-			   	lines[i][2] > tmp_length) {
+			   	double_line > tmp_length) {
 			b_rbl_tr.push_back(lines[i][0]);
 			b_rbl_tr.push_back(lines[i][1]);
 			b_rbl_tr.push_back(lines[i][2]);
@@ -216,12 +217,12 @@ int main(int argc, char* argv[]) {
 		///cv::Mat processed = cv::imread(argv[1]);
 		//cv::Mat tmp = cv::imread(argv[1]);
 		cv::Mat rotated;
-		//rotate_by(image, rotated, 5*65);
-		//cv::imwrite("proba.png", rotated);
+		//rotate_by(image, rotated, 5*2);
+		//cv::imwrite("proba2.png", rotated);
 
 
 		// Processing
-		for (int iter = 0; iter < 3; ++iter) {
+		for (int iter = 0; iter < 1; ++iter) {
 			std::vector<std::vector<int>> horizontal_lines;
 			std::vector<int> logo_borders;
 			std::vector<int> logo_bounds;
@@ -248,6 +249,7 @@ int main(int argc, char* argv[]) {
 				break;
 			}
 		}
+
 		// Show results
 		//cv::imshow("Oryginal", image);
 		//cv::imshow("Shell_tresh", tmp);
