@@ -144,7 +144,7 @@ std::vector<int> get_logos_possible_borders(std::vector<std::vector<int>> lines)
 	// bottom_row_begin_length_tmp_row
 	for (int i = 0; i < lines.size()-1; ++i) {
 		int double_line = 0;
-		if (lines[i][0] == lines[i+1][0] && lines[i+1][1] < (lines[i][1] + lines[i][2] * 1.5)) {
+		if (lines[i][0] == lines[i+1][0] && lines[i+1][1] < (lines[i][1] + int(lines[i][2] * 1.5))) {
 			double_line = lines[i][2] + lines[i+1][2];
 		} else {
 			double_line = lines[i][2];
@@ -155,7 +155,7 @@ std::vector<int> get_logos_possible_borders(std::vector<std::vector<int>> lines)
 			   	double_line > tmp_length) {
 			b_rbl_tr.push_back(lines[i][0]);
 			b_rbl_tr.push_back(lines[i][1]);
-			b_rbl_tr.push_back(lines[i][2]);
+			b_rbl_tr.push_back(double_line);
 			b_rbl_tr.push_back(tmp_row);
 
 			std::cout << "I: " << lines[i][0] << " Begin: " << lines[i][1] << " Length of line: " << lines[i][2] << std::endl;
@@ -166,10 +166,12 @@ std::vector<int> get_logos_possible_borders(std::vector<std::vector<int>> lines)
 
 std::vector<int> calculate_bounds(std::vector<int> factors) {
 	// Calculate borders
-	int left_x = factors[1] - factors[1]*30/100;
-	int right_x = factors[1] + factors[2] + factors[1]*30/100;
-	int upper_y = factors[3] - factors[3]*15/100;
-	int lower_y = factors[0] + factors[0]*6/100;
+	int width = factors[2];
+	int height = factors[0] - factors[3];
+	int left_x = factors[1] - width*35/100;
+	int right_x = factors[1] + factors[2] + width*35/100;
+	int upper_y = factors[3] - height*12/100;
+	int lower_y = factors[0] + height*6/100;
 	std::vector<int> bounds = {left_x, right_x, upper_y, lower_y};
 	return bounds;
 }
