@@ -82,10 +82,11 @@ std::vector<std::vector<int>> find_horizontal_lines(cv::Mat& inImg, cv::Mat& out
 	return lines;
 }
 
-std::vector<int> get_logos_possible_borders(std::vector<std::vector<int>> lines) {
-	for (int i = 0; i < lines.size(); ++i) {
-		std::cout << "I: " << lines[i][0] << " Begin: " << lines[i][1] << " Length of line: " << lines[i][2] << std::endl;
-	}
+std::vector<int> get_logos_possible_borders(std::vector<std::vector<int>> lines,
+		std::vector<std::vector<int>> &visited, int &last_size, bool &processed_angle) {
+	//for (int i = 0; i < lines.size(); ++i) {
+	//	std::cout << "I: " << lines[i][0] << " Begin: " << lines[i][1] << " Length of line: " << lines[i][2] << std::endl;
+	//}
 
 	int start_flag = -1;
 	int tmp_length = 0;
@@ -103,18 +104,30 @@ std::vector<int> get_logos_possible_borders(std::vector<std::vector<int>> lines)
 		int i = 0;
 		for (i = 0; i < lines.size(); ++i) {
 			if (start_flag == -1) {
+				std::vector<int> tmp = {lines[i][0], lines[i][1], lines[i][2]};
+				if (std::find(visited.begin(), visited.end(), tmp) != visited.end()) {
+					continue;
+				}
+
 				tmp_length = lines[i][2];
 				tmp_begin = lines[i][1];
 				tmp_row = lines[i][0];
+
+				visited.push_back(tmp);
 				tmp_thickness++;
 				start_flag = 1;
 				continue;
 			}
 			if (lines[i][2] > tmp_length && lines[i][0] < tmp_row + 5
 					&& lines[i][1] < tmp_begin && lines[i][1] > (tmp_begin - tmp_begin*6/100)) {
+				std::vector<int> tmp = {lines[i][0], lines[i][1], lines[i][2]};
+				if (std::find(visited.begin(), visited.end(), tmp) != visited.end()) {
+					continue;
+				}
 				tmp_length = lines[i][2];
 				tmp_begin = lines[i][1];
 				tmp_row = lines[i][0];
+				visited.push_back(tmp);
 				tmp_thickness++;
 			}
 		}
@@ -124,10 +137,17 @@ std::vector<int> get_logos_possible_borders(std::vector<std::vector<int>> lines)
 			iter = i+1;
 			start_flag = 0;
 		}
+
 		// ogarnac przypadek kiedy na jednej linii sa dwa prawdopodobne loga
 		// (czyli tu else w trakcie, albo kolejnego szukac w liniach ponizej)
 
 	}
+	if (last_size == visited.size()) {
+		std::cout << "UPS" << std::endl;
+		processed_angle = true;
+	}
+
+	last_size = visited.size();
 	std::vector<int> b_rbl_tr;
 	if (tmp_thickness < MIN_THICKNESS) {
 		return b_rbl_tr;
@@ -326,13 +346,14 @@ int main(int argc, char* argv[]) {
 		///cv::Mat processed = cv::imread(argv[1]);
 		//cv::Mat tmp = cv::imread(argv[1]);
 		cv::Mat rotated;
-		//rotate_by(image, rotated, 5*3);
-		//cv::imwrite("proba5.png", rotated);
+		//rotate_by(image, rotated, -5*2);
+		//cv::imwrite("proba7.png", rotated);
 		bool found = false;
+		std::vector<std::vector<int>> visited;
 
-
+///*
 		// Processing
-		for (int iter = 0; iter < 72; ++iter) {
+		for (int iter = 0; iter < 1; ++iter) {
 			std::vector<std::vector<int>> horizontal_lines;
 			std::vector<int> logo_borders;
 			std::vector<int> logo_bounds;
@@ -348,40 +369,47 @@ int main(int argc, char* argv[]) {
 			cv::Mat tmp2 = rotated.clone();
 
 			horizontal_lines = find_horizontal_lines(tresh, tmp2);
-			logo_borders = get_logos_possible_borders(horizontal_lines);
-			std::cout << "logo_borders size: " << logo_borders.size() << std::endl;
-			if (!logo_borders.empty()) {
-				logo_bounds = calculate_bounds(logo_borders);
 
-				std::vector<int> ld_square = calculate_left_down_square(logo_bounds);
-				cv::Mat left_down_corner(processed, cv::Range(ld_square[2], ld_square[3]), cv::Range(ld_square[0], ld_square[1]));
-				double ldc_M7 = calculate_M7(left_down_corner);
-				std::cout << "Left down M7: " << ldc_M7 << std::endl;
-				//cv::imshow("lol", left_down_corner);
-				if (ldc_M7 < 0.00800 || ldc_M7 > 0.0150) continue;
+			bool processed_angle = false;
+			int last_size = visited.size();
+			while (processed_angle != true) {
+				logo_borders = get_logos_possible_borders(horizontal_lines, visited, last_size, processed_angle);
+				std::cout << "logo_borders size: " << logo_borders.size() << std::endl;
+				std::cout << "Visited size: " << visited.size() << std::endl;
+				if (!logo_borders.empty()) {
+					logo_bounds = calculate_bounds(logo_borders);
 
-				std::vector<int> rd_square = calculate_right_down_square(logo_bounds);
-				cv::Mat right_down_corner(processed, cv::Range(rd_square[2], rd_square[3]), cv::Range(rd_square[0], rd_square[1]));
-				double rdc_M7 = calculate_M7(right_down_corner);
-				std::cout << "Right down M7: " << rdc_M7 << std::endl;
-				//cv::imshow("lol", right_down_corner);
-				if (rdc_M7 < 0.00800 || rdc_M7 > 0.0150) continue;
+					std::vector<int> ld_square = calculate_left_down_square(logo_bounds);
+					cv::Mat left_down_corner(processed, cv::Range(ld_square[2], ld_square[3]), cv::Range(ld_square[0], ld_square[1]));
+					double ldc_M7 = calculate_M7(left_down_corner);
+					std::cout << "Left down M7: " << ldc_M7 << std::endl;
+					cv::imshow("lol", left_down_corner);
+					if (ldc_M7 < 0.00800 || ldc_M7 > 0.0150) continue;
 
-				std::vector<int> uh_rect = calculate_upper_half_rect(logo_bounds);
-				cv::Mat upper_half(processed, cv::Range(uh_rect[2], uh_rect[3]), cv::Range(uh_rect[0], uh_rect[1]));
-				double uh_M7 = calculate_M7(upper_half);
-				std::cout << "Upper half M7: " << uh_M7 << std::endl;
-				if (uh_M7 < 0.0120 || uh_M7 > 0.0230) continue;
-				found = true;
-				// 10. policz stosunek koloru zoltego do czerwonego
-				// 11. sprawdz czy miesci sie w zakresie, jesli nie continue
-				draw_bounds(processed, logo_bounds);
-				rotate_by(processed, processed, -5*iter);
-				cv::imshow("Obrysowane znalezione logo", processed);
-				cv::imwrite("result.png", processed);
-				break;
+					std::vector<int> rd_square = calculate_right_down_square(logo_bounds);
+					cv::Mat right_down_corner(processed, cv::Range(rd_square[2], rd_square[3]), cv::Range(rd_square[0], rd_square[1]));
+					double rdc_M7 = calculate_M7(right_down_corner);
+					std::cout << "Right down M7: " << rdc_M7 << std::endl;
+					//cv::imshow("lol", right_down_corner);
+					if (rdc_M7 < 0.00800 || rdc_M7 > 0.0150) continue;
+
+					std::vector<int> uh_rect = calculate_upper_half_rect(logo_bounds);
+					cv::Mat upper_half(processed, cv::Range(uh_rect[2], uh_rect[3]), cv::Range(uh_rect[0], uh_rect[1]));
+					double uh_M7 = calculate_M7(upper_half);
+					std::cout << "Upper half M7: " << uh_M7 << std::endl;
+					if (uh_M7 < 0.0120 || uh_M7 > 0.0230) continue;
+					found = true;
+					// 10. policz stosunek koloru zoltego do czerwonego
+					// 11. sprawdz czy miesci sie w zakresie, jesli nie continue
+					draw_bounds(processed, logo_bounds);
+					rotate_by(processed, processed, -5*iter);
+					cv::imshow("Obrysowane znalezione logo", processed);
+					cv::imwrite("result.png", processed);
+					break;
+				}
 			}
 		}
+//		*/
 		if (found) {
 			std::cout << "Shell logo found!" << std::endl;
 		} else {
