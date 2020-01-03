@@ -5,9 +5,9 @@
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/opencv.hpp"  //getRotationMatrix2D, warpAffine
 
-// BGR
+// RGB
 // TODO pokombinowac jeszcze z odcieniem 
-const int RED_TRESH[3] = {80, 80, 90};
+const int RED_TRESH[3] = {180, 90, 100};
 // TODO
 const int YELLOW_TRESH[3] = {0,0,0};
 
@@ -173,6 +173,7 @@ std::vector<int> calculate_bounds(std::vector<int> factors) {
 	int upper_y = factors[3] - height*12/100;
 	int lower_y = factors[0] + height*6/100;
 	std::vector<int> bounds = {left_x, right_x, upper_y, lower_y};
+
 	return bounds;
 }
 
@@ -213,18 +214,125 @@ void rotate_by(cv::Mat& inImg, cv::Mat& outImg, int angle) {
 	//cv::imwrite("rotated_im.png", dst);
 }
 
+double calculate_moment(cv::Mat& I, int p, int q) {
+	double mpq = 0;
+	cv::Mat_<cv::Vec3b> _I = I;
+	for (int i = 0; i < I.rows; ++i)
+		for (int j = 0; j < I.cols; ++j) {
+			if ((_I(i, j)[0] + _I(i, j)[1] + _I(i, j)[2]) / 3 > 127) {
+				mpq = mpq + (pow(i, p) * pow(j, q) * 1);
+			}
+		}
+
+	return mpq;
+}
+
+double calculate_M11(double m11, double m10, double m01, double m00) {
+	double M11;
+	M11 = m11 - (m10 * m01 / m00);
+	return M11;
+}
+
+double calculate_M02(double m02, double m01, double m00) {
+	double M02;
+	M02 = m02 - (m01 * m01 / m00);
+	return M02;
+}
+
+double calculate_M20(double m20, double m10, double m00) {
+	double M20;
+	M20 = m20 -( m10 * m10 / m00);
+	return M20;
+}
+
+double calculate_M1(cv::Mat& I) {
+	double M1;
+	double m02, m01, m00, m20, m10, M20, M02;
+	m02 = calculate_moment(I, 0, 2);
+	m01 = calculate_moment(I, 0, 1);
+	m00 = calculate_moment(I, 0, 0);
+	m20 = calculate_moment(I, 2, 0);
+	m10 = calculate_moment(I, 1, 0);
+	M20 = calculate_M20(m20, m10, m00);
+	M02 = calculate_M02(m02, m01, m00);
+	M1 = (M20 + M02) / (m00*m00);
+	return M1;
+}
+
+double calculate_M7(cv::Mat& I) {
+	double M7, m02, m01, m00, m20, m10, m11, M20, M02, M11;
+	m02 = calculate_moment(I, 0, 2);
+	m01 = calculate_moment(I, 0, 1);
+	m00 = calculate_moment(I, 0, 0);
+	m20 = calculate_moment(I, 2, 0);
+	m10 = calculate_moment(I, 1, 0);
+	m11 = calculate_moment(I, 1, 1);
+	M20 = calculate_M20(m20, m10, m00);
+	M02 = calculate_M02(m02, m01, m00);
+	M11 = calculate_M11(m11, m10, m01, m00);
+	M7 = (M02 * M20 - M11 * M11) / powl(m00, 4);
+
+	return M7;
+}
+
+std::vector<int> calculate_left_down_square(std::vector<int> bounds) {
+	std::vector<int> ld_square;
+	int minX = bounds[0];
+	int maxX = bounds[0] + ((bounds[1] - bounds[0]) / 2);
+	int minY = bounds[3] - ((bounds[3] - bounds[2]) / 2);
+	int maxY = bounds[3];
+
+	ld_square.push_back(minX);
+	ld_square.push_back(maxX);
+	ld_square.push_back(minY);
+	ld_square.push_back(maxY);
+
+	return ld_square;
+}
+
+std::vector<int> calculate_right_down_square(std::vector<int> bounds) {
+	std::vector<int> rd_square;
+	int minX = bounds[1] - ((bounds[1] - bounds[0]) / 2);
+	int maxX = bounds[1];
+	int minY = bounds[3] - ((bounds[3] - bounds[2]) / 2);
+	int maxY = bounds[3];
+
+	rd_square.push_back(minX);
+	rd_square.push_back(maxX);
+	rd_square.push_back(minY);
+	rd_square.push_back(maxY);
+
+	return rd_square;
+}
+
+std::vector<int> calculate_upper_half_rect(std::vector<int> bounds) {
+	std::vector<int> rect;
+	int minX = bounds[0];
+	int maxX = bounds[1];
+	int minY = bounds[2];
+	int maxY = bounds[2] + ((bounds[3] - bounds[2]) / 2);
+
+	rect.push_back(minX);
+	rect.push_back(maxX);
+	rect.push_back(minY);
+	rect.push_back(maxY);
+
+	return rect;
+}
+
 int main(int argc, char* argv[]) {
 	if (argc == 2 && (cv::imread(argv[1]).data != NULL)) {
 		cv::Mat image = cv::imread(argv[1]);
 		///cv::Mat processed = cv::imread(argv[1]);
 		//cv::Mat tmp = cv::imread(argv[1]);
 		cv::Mat rotated;
-		//rotate_by(image, rotated, 5*2);
-		//cv::imwrite("proba2.png", rotated);
+		//rotate_by(image, rotated, 5*3);
+		//cv::imwrite("proba5.png", rotated);
+		bool found = false;
 
 
 		// Processing
-		for (int iter = 0; iter < 1; ++iter) {
+		for (int iter = 0; iter < 72; ++iter) {
 			std::vector<std::vector<int>> horizontal_lines;
 			std::vector<int> logo_borders;
 			std::vector<int> logo_bounds;
@@ -233,17 +341,40 @@ int main(int argc, char* argv[]) {
 			cv::Mat rotated;
 			rotate_by(image, rotated, 5*iter);
 			cv::Mat processed = rotated.clone();
-			cv::Mat tmp = rotated.clone();
-			treshold(rotated, tmp);
-			cv::imshow("Shell_tresh", tmp);
-			cv::imwrite("tresh.png", tmp);
+			cv::Mat tresh = rotated.clone();
+			treshold(rotated, tresh);
+			//cv::imshow("Shell_tresh", tresh);
+			cv::imwrite("tresh.png", tresh);
 			cv::Mat tmp2 = rotated.clone();
 
-			horizontal_lines = find_horizontal_lines(tmp, tmp2);
+			horizontal_lines = find_horizontal_lines(tresh, tmp2);
 			logo_borders = get_logos_possible_borders(horizontal_lines);
 			std::cout << "logo_borders size: " << logo_borders.size() << std::endl;
 			if (!logo_borders.empty()) {
 				logo_bounds = calculate_bounds(logo_borders);
+
+				std::vector<int> ld_square = calculate_left_down_square(logo_bounds);
+				cv::Mat left_down_corner(processed, cv::Range(ld_square[2], ld_square[3]), cv::Range(ld_square[0], ld_square[1]));
+				double ldc_M7 = calculate_M7(left_down_corner);
+				std::cout << "Left down M7: " << ldc_M7 << std::endl;
+				//cv::imshow("lol", left_down_corner);
+				if (ldc_M7 < 0.00800 || ldc_M7 > 0.0150) continue;
+
+				std::vector<int> rd_square = calculate_right_down_square(logo_bounds);
+				cv::Mat right_down_corner(processed, cv::Range(rd_square[2], rd_square[3]), cv::Range(rd_square[0], rd_square[1]));
+				double rdc_M7 = calculate_M7(right_down_corner);
+				std::cout << "Right down M7: " << rdc_M7 << std::endl;
+				//cv::imshow("lol", right_down_corner);
+				if (rdc_M7 < 0.00800 || rdc_M7 > 0.0150) continue;
+
+				std::vector<int> uh_rect = calculate_upper_half_rect(logo_bounds);
+				cv::Mat upper_half(processed, cv::Range(uh_rect[2], uh_rect[3]), cv::Range(uh_rect[0], uh_rect[1]));
+				double uh_M7 = calculate_M7(upper_half);
+				std::cout << "Upper half M7: " << uh_M7 << std::endl;
+				if (uh_M7 < 0.0120 || uh_M7 > 0.0230) continue;
+				found = true;
+				// 10. policz stosunek koloru zoltego do czerwonego
+				// 11. sprawdz czy miesci sie w zakresie, jesli nie continue
 				draw_bounds(processed, logo_bounds);
 				rotate_by(processed, processed, -5*iter);
 				cv::imshow("Obrysowane znalezione logo", processed);
@@ -251,7 +382,11 @@ int main(int argc, char* argv[]) {
 				break;
 			}
 		}
-
+		if (found) {
+			std::cout << "Shell logo found!" << std::endl;
+		} else {
+			std::cout << "Shell logo not found!" << std::endl;
+		}
 		// Show results
 		//cv::imshow("Oryginal", image);
 		//cv::imshow("Shell_tresh", tmp);
