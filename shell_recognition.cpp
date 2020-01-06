@@ -6,16 +6,8 @@
 #include "opencv2/opencv.hpp"  //getRotationMatrix2D, warpAffine
 
 // RGB
-// TODO pokombinowac jeszcze z odcieniem 
 const int RED_TRESH[3] = {100, 80, 80};
-// TODO
 const int YELLOW_TRESH[3] = {150,90,80};
-
-const std::vector<int> HORIZONTAL_FILTER = {-1,-1,-1,
-											 2, 2, 2,
-											-1,-1,-1};
-
-const std::vector<int> HORIZONTAL_FILTER2 = {2,2,2,2,2,2,2};
 const int MIN_THICKNESS = 3;
 
 void treshold(cv::Mat& inImg, cv::Mat& outImg) {
@@ -60,8 +52,8 @@ double check_yellow_percentage(cv::Mat& inImg) {
 			}
 		}
 */
-	std::cout << "Yellow pixels: " << count_yellow_pixels << std::endl;
-	std::cout << "All pixels: " << pixels << std::endl;
+	//std::cout << "Yellow pixels: " << count_yellow_pixels << std::endl;
+	//std::cout << "All pixels: " << pixels << std::endl;
 	return count_yellow_pixels / pixels;
 }
 
@@ -146,7 +138,7 @@ std::vector<int> get_logos_possible_borders(std::vector<std::vector<int>> lines,
 				start_flag = 1;
 				continue;
 			}
-			if (lines[i][2] > tmp_length && lines[i][0] < tmp_row + 5
+			if (lines[i][2] > tmp_length && lines[i][0] < tmp_row + 15
 					&& lines[i][1] < tmp_begin && lines[i][1] > (tmp_begin - tmp_begin*6/100)) {
 				std::vector<int> tmp = {lines[i][0], lines[i][1], lines[i][2]};
 				if (std::find(visited.begin(), visited.end(), tmp) != visited.end()) {
@@ -245,6 +237,19 @@ void draw_bounds(cv::Mat& inImg, std::vector<int> bounds) {
 
 }
 
+void fill_black(cv::Mat& inImg, std::vector<int> bounds) {
+	CV_Assert(inImg.depth() != sizeof(uchar));
+	cv::Mat_<cv::Vec3b> _I = inImg;
+	for (int i = 0; i < _I.rows; ++i)
+		for (int j = 0; j < _I.cols; ++j) {
+			if ( i > bounds[2] && i < bounds[3] && j > bounds[0] && j < bounds[1]) {
+				_I(i, j)[2] = 0;
+				_I(i, j)[1] = 0;
+				_I(i, j)[0] = 0;
+			}
+		}
+}
+
 void rotate_by(cv::Mat& inImg, cv::Mat& outImg, int angle) {
 	CV_Assert(inImg.depth() != sizeof(uchar));
 	cv::Mat src = inImg;
@@ -284,6 +289,18 @@ double calculate_M11(double m11, double m10, double m01, double m00) {
 	return M11;
 }
 
+double calculate_M12(double m12, double m11, double m01, double m00, double m02, double m10) {
+	double M12;
+	M12 = m12 - 2 * m11 * m01 / m00 - m02 * m10 / m00 + 2 * m10 * pow(m01/m00, 2);
+	return M12;
+}
+
+double calculate_M21(double m21, double m11, double m10, double m00, double m20, double m01) {
+	double M21;
+	M21 = m21 - 2 * m11 * m10 / m00 - m20 * m01 / m00 + 2 * m01 * pow(m10/m00, 2);
+	return M21;
+}
+
 double calculate_M02(double m02, double m01, double m00) {
 	double M02;
 	M02 = m02 - (m01 * m01 / m00);
@@ -294,6 +311,18 @@ double calculate_M20(double m20, double m10, double m00) {
 	double M20;
 	M20 = m20 -( m10 * m10 / m00);
 	return M20;
+}
+
+double calculate_M30(double m30, double m20, double m10, double m00) {
+	double M30;
+	M30 = m30 - 3 * m20 * m10 / m00 + 2 * m10 * pow(m10/m00, 2);
+	return M30;
+}
+
+double calculate_M03(double m03, double m02, double m01, double m00) {
+	double M03;
+	M03 = m03 - 3 * m02 * m01 / m00 + 2 * m01 * pow(m01/m00, 2);
+	return M03;
 }
 
 double calculate_M1(cv::Mat& I) {
@@ -308,6 +337,117 @@ double calculate_M1(cv::Mat& I) {
 	M02 = calculate_M02(m02, m01, m00);
 	M1 = (M20 + M02) / (m00*m00);
 	return M1;
+}
+
+double calculate_M2(cv::Mat& I) {
+	double M2;
+	double M20, M02, M11, m20, m10, m02, m01, m11, m00;
+
+	m20 = calculate_moment(I, 2, 0);
+	m10 = calculate_moment(I, 1, 0);
+	m02 = calculate_moment(I, 0, 2);
+	m01 = calculate_moment(I, 0, 1);
+	m11 = calculate_moment(I, 1, 1);
+	m00 = calculate_moment(I, 0, 0);
+	M11 = calculate_M11(m11, m10, m01, m00);
+	M02 = calculate_M02(m02, m01, m00);
+	M20 = calculate_M20(m20, m10, m00);
+	M2 = (pow(M20 - M02, 2) + 4 * pow(M11, 2)) / pow(m00,4);
+	return M2;
+}
+
+double calculate_M3(cv::Mat& I) {
+	double M3;
+	double M30, M12, M21, M03, m21, m03, m02, m12, m11, m01, m30, m20, m10, m00;
+
+	m03 = calculate_moment(I, 0, 3);
+	m02 = calculate_moment(I, 0, 2);
+	m12 = calculate_moment(I, 1, 2);
+	m11 = calculate_moment(I, 1, 1);
+	m01 = calculate_moment(I, 0, 1);
+	m30 = calculate_moment(I, 3, 0);
+	m20 = calculate_moment(I, 2, 0);
+	m10 = calculate_moment(I, 1, 0);
+	m00 = calculate_moment(I, 0, 0);
+	m21 = calculate_moment(I, 2, 1);
+	M03 = calculate_M03(m03, m02, m01, m00);
+	M21 = calculate_M21(m21, m11, m10, m00, m20, m01);
+	M12 = calculate_M12(m12, m11, m01, m00, m02, m10);
+	M30 = calculate_M30(m30, m20, m10, m00);
+	M3 = (pow(M30 - 3 * M12, 2) + pow(3 * M21 - M03, 2)) / pow(m00,5);
+	return M3;
+}
+
+double calculate_M4(cv::Mat& I) {
+	double M4;
+	double M30, M12, M21, M03, m21, m03, m02, m12, m11, m01, m30, m20, m10, m00;
+
+	m03 = calculate_moment(I, 0, 3);
+	m02 = calculate_moment(I, 0, 2);
+	m12 = calculate_moment(I, 1, 2);
+	m11 = calculate_moment(I, 1, 1);
+	m01 = calculate_moment(I, 0, 1);
+	m30 = calculate_moment(I, 3, 0);
+	m20 = calculate_moment(I, 2, 0);
+	m10 = calculate_moment(I, 1, 0);
+	m00 = calculate_moment(I, 0, 0);
+	m21 = calculate_moment(I, 2, 1);
+	M03 = calculate_M03(m03, m02, m01, m00);
+	M21 = calculate_M21(m21, m11, m10, m00, m20, m01);
+	M12 = calculate_M12(m12, m11, m01, m00, m02, m10);
+	M30 = calculate_M30(m30, m20, m10, m00);
+	M4 = (pow(M30 + M12, 2) + pow(M21 + M03, 2)) / pow(m00,5);
+	return M4;
+}
+
+double calculate_M5(cv::Mat& I) {
+	double M5;
+	double M30, M12, M21, M03, m21, m03, m02, m12, m11, m01, m30, m20, m10, m00;
+
+	m03 = calculate_moment(I, 0, 3);
+	m02 = calculate_moment(I, 0, 2);
+	m12 = calculate_moment(I, 1, 2);
+	m11 = calculate_moment(I, 1, 1);
+	m01 = calculate_moment(I, 0, 1);
+	m30 = calculate_moment(I, 3, 0);
+	m20 = calculate_moment(I, 2, 0);
+	m10 = calculate_moment(I, 1, 0);
+	m00 = calculate_moment(I, 0, 0);
+	m21 = calculate_moment(I, 2, 1);
+	M03 = calculate_M03(m03, m02, m01, m00);
+	M21 = calculate_M21(m21, m11, m10, m00, m20, m01);
+	M12 = calculate_M12(m12, m11, m01, m00, m02, m10);
+	M30 = calculate_M30(m30, m20, m10, m00);
+
+
+	M5 = ((M30 - 3 * M12) * (M30 + M12) * (pow(M30 + M12, 2) - 3 * pow(M21 + M03, 2)) + (3 * M21 - M03) * (M21 + M03) * (3 * pow(M30 + M12, 2) - pow(M21 + M03, 2))) / pow(m00,10);
+	return M5;
+}
+
+double calculate_M6(cv::Mat& I) {
+	double M6;
+	double M30, M12, M21, M03, M11, M20, M02, m21, m03, m02, m12, m11, m01, m30, m20, m10, m00;
+
+	m03 = calculate_moment(I, 0, 3);
+	m02 = calculate_moment(I, 0, 2);
+	m12 = calculate_moment(I, 1, 2);
+	m11 = calculate_moment(I, 1, 1);
+	m01 = calculate_moment(I, 0, 1);
+	m30 = calculate_moment(I, 3, 0);
+	m20 = calculate_moment(I, 2, 0);
+	m10 = calculate_moment(I, 1, 0);
+	m00 = calculate_moment(I, 0, 0);
+	m21 = calculate_moment(I, 2, 1);
+	M03 = calculate_M03(m03, m02, m01, m00);
+	M21 = calculate_M21(m21, m11, m10, m00, m20, m01);
+	M12 = calculate_M12(m12, m11, m01, m00, m02, m10);
+	M30 = calculate_M30(m30, m20, m10, m00);
+	M11 = calculate_M11(m11, m10, m01, m00);
+	M02 = calculate_M02(m02, m01, m00);
+	M20 = calculate_M20(m20, m10, m00);
+
+	M6 = ((M20 - M02) * (pow(M30 + M12, 2) - pow(M21 + M03, 2) ) + 4 * M11 * (M30 + M12) * (M21 + M03)) / pow(m00, 7);
+	return M6;
 }
 
 double calculate_M7(cv::Mat& I) {
@@ -374,15 +514,14 @@ std::vector<int> calculate_upper_half_rect(std::vector<int> bounds) {
 int main(int argc, char* argv[]) {
 	if (argc == 2 && (cv::imread(argv[1]).data != NULL)) {
 		cv::Mat image = cv::imread(argv[1]);
-		///cv::Mat processed = cv::imread(argv[1]);
-		//cv::Mat tmp = cv::imread(argv[1]);
+		cv::Mat result = cv::imread(argv[1]);
 		cv::Mat rotated;
 		//rotate_by(image, rotated, 5*2);
 		//cv::imwrite("proba9.png", rotated);
 		bool found = false;
 		std::vector<std::vector<int>> visited;
 
-///*  
+///*
 		// Processing
 		for (int iter = 0; iter < 1; ++iter) {
 			std::vector<std::vector<int>> horizontal_lines;
@@ -392,6 +531,7 @@ int main(int argc, char* argv[]) {
 			// Tu uporzadkowac
 			cv::Mat rotated;
 			rotate_by(image, rotated, 5*iter);
+			rotate_by(result, result, 5*iter);
 			cv::Mat processed = rotated.clone();
 			cv::Mat tresh = rotated.clone();
 			treshold(rotated, tresh);
@@ -411,40 +551,78 @@ int main(int argc, char* argv[]) {
 
 					std::vector<int> ld_square = calculate_left_down_square(logo_bounds);
 					cv::Mat left_down_corner(processed, cv::Range(ld_square[2], ld_square[3]), cv::Range(ld_square[0], ld_square[1]));
+					double ldc_M1 = calculate_M1(left_down_corner);
+					double ldc_M2 = calculate_M2(left_down_corner);
+					double ldc_M3 = calculate_M3(left_down_corner);
+					double ldc_M4 = calculate_M4(left_down_corner);
+					double ldc_M5 = calculate_M5(left_down_corner);
+					double ldc_M6 = calculate_M6(left_down_corner);
 					double ldc_M7 = calculate_M7(left_down_corner);
-					//std::cout << "Left down M7: " << ldc_M7 << std::endl;
+					std::cout << "Left down M1: " << ldc_M1 << std::endl;
+					std::cout << "Left down M2: " << ldc_M2 << std::endl;
+					std::cout << "Left down M3: " << ldc_M3 << std::endl;
+					std::cout << "Left down M4: " << ldc_M4 << std::endl;
+					std::cout << "Left down M5: " << ldc_M5 << std::endl;
+					std::cout << "Left down M6: " << ldc_M6 << std::endl;
+					std::cout << "Left down M7: " << ldc_M7 << std::endl;
 					//cv::imshow("lol", left_down_corner);
 					if (ldc_M7 < 0.00700 || ldc_M7 > 0.0150) continue;
 
+
 					std::vector<int> rd_square = calculate_right_down_square(logo_bounds);
 					cv::Mat right_down_corner(processed, cv::Range(rd_square[2], rd_square[3]), cv::Range(rd_square[0], rd_square[1]));
+					double rdc_M1 = calculate_M1(right_down_corner);
+					double rdc_M2 = calculate_M2(right_down_corner);
+					double rdc_M3 = calculate_M3(right_down_corner);
+					double rdc_M4 = calculate_M4(right_down_corner);
+					double rdc_M5 = calculate_M5(right_down_corner);
+					double rdc_M6 = calculate_M6(right_down_corner);
 					double rdc_M7 = calculate_M7(right_down_corner);
-					//std::cout << "Right down M7: " << rdc_M7 << std::endl;
+					std::cout << "Right down M1: " << rdc_M1 << std::endl;
+					std::cout << "Right down M2: " << rdc_M2 << std::endl;
+					std::cout << "Right down M3: " << rdc_M3 << std::endl;
+					std::cout << "Right down M4: " << rdc_M4 << std::endl;
+					std::cout << "Right down M5: " << rdc_M5 << std::endl;
+					std::cout << "Right down M6: " << rdc_M6 << std::endl;
+					std::cout << "Right down M7: " << rdc_M7 << std::endl;
 					//cv::imshow("lol", right_down_corner);
 					if (rdc_M7 < 0.00700 || rdc_M7 > 0.0150) continue;
 
 					std::vector<int> uh_rect = calculate_upper_half_rect(logo_bounds);
 					cv::Mat upper_half(processed, cv::Range(uh_rect[2], uh_rect[3]), cv::Range(uh_rect[0], uh_rect[1]));
+					double uh_M1 = calculate_M1(upper_half);
+					double uh_M2 = calculate_M2(upper_half);
+					double uh_M3 = calculate_M3(upper_half);
+					double uh_M4 = calculate_M4(upper_half);
+					double uh_M5 = calculate_M5(upper_half);
+					double uh_M6 = calculate_M6(upper_half);
 					double uh_M7 = calculate_M7(upper_half);
-					//std::cout << "Upper half M7: " << uh_M7 << std::endl;
+					std::cout << "Upper half M1: " << uh_M1 << std::endl;
+					std::cout << "Upper half M2: " << uh_M2 << std::endl;
+					std::cout << "Upper half M3: " << uh_M3 << std::endl;
+					std::cout << "Upper half M4: " << uh_M4 << std::endl;
+					std::cout << "Upper half M5: " << uh_M5 << std::endl;
+					std::cout << "Upper half M6: " << uh_M6 << std::endl;
+					std::cout << "Upper half M7: " << uh_M7 << std::endl;
 					if (uh_M7 < 0.0120 || uh_M7 > 0.0600) continue;
 
 					cv::Mat logo(processed, cv::Range(uh_rect[2], rd_square[3]), cv::Range(uh_rect[0], uh_rect[1]));
 					//cv::imshow("logo", logo);
 					double yellow_percentage = check_yellow_percentage(logo);
-					std::cout << "Yellow percentage: " << yellow_percentage << std::endl;
+					//std::cout << "Yellow percentage: " << yellow_percentage << std::endl;
 					if (yellow_percentage < 0.25) continue;
 
 					found = true;
-					// 10. policz stosunek koloru zoltego do czerwonego
-					// 11. sprawdz czy miesci sie w zakresie, jesli nie continue
-					draw_bounds(processed, logo_bounds);
+
+					draw_bounds(result, logo_bounds);
+					fill_black(processed, logo_bounds);
 					//cv::imshow("Obrysowane znalezione logo", processed);
 					//cv::imwrite("result.png", processed);
 					//break;
 				}
 			}
 			rotate_by(processed, processed, -5*iter);
+			rotate_by(result, result, -5*iter);
 			image = processed.clone();
 
 		}
@@ -455,8 +633,9 @@ int main(int argc, char* argv[]) {
 			std::cout << "Shell logo not found!" << std::endl;
 		}
 		// Show results
-		cv::imshow("Processed", image);
-		cv::imwrite("result.png", image);
+		//cv::imshow("Processed", image);
+		cv::imshow("Result", result);
+		cv::imwrite("result.png", result);
 		//cv::imshow("Shell_tresh", tmp);
 		//cv::imshow("Shell_horizontal", tmp2);
 		cv::waitKey(-1);
@@ -473,6 +652,12 @@ int main(int argc, char* argv[]) {
 // nieoptymalne, zmienic na greyscale
 // nazwa: apply_filter? dodatkowy argument?
 /*  
+//const std::vector<int> HORIZONTAL_FILTER = {-1,-1,-1,
+//											 2, 2, 2,
+//											-1,-1,-1};
+
+//const std::vector<int> HORIZONTAL_FILTER2 = {2,2,2,2,2,2,2};
+
 void apply_filter(cv::Mat& inImg, cv::Mat& outImg, std::vector<int> filter) {
 	CV_Assert(inImg.depth() != sizeof(uchar));
 	cv::Mat_<cv::Vec3b> _I = inImg;
