@@ -8,7 +8,7 @@
 // RGB
 const int RED_TRESH[3] = {100, 80, 80};
 const int YELLOW_TRESH[3] = {150,90,80};
-const int MIN_THICKNESS = 3;
+const int MIN_THICKNESS = 2;
 
 void treshold(cv::Mat& inImg, cv::Mat& outImg) {
 	CV_Assert(inImg.depth() != sizeof(uchar));
@@ -79,7 +79,6 @@ std::vector<std::vector<int>> find_horizontal_lines(cv::Mat& inImg, cv::Mat& out
 				line_length++;
 			} else if (line_begin != -1) {
 				last_pixel_ok = 0;
-				// TODO ogarniac ten treshold automatycznie
 				if (line_length > 5) {
 					std::vector<int> line;
 					line.push_back(i);
@@ -512,18 +511,20 @@ std::vector<int> calculate_upper_half_rect(std::vector<int> bounds) {
 }
 
 int main(int argc, char* argv[]) {
-	if (argc == 2 && (cv::imread(argv[1]).data != NULL)) {
+	if (argc == 3 && (cv::imread(argv[1]).data != NULL)) {
+		int iterations = std::stoi(argv[2]);
 		cv::Mat image = cv::imread(argv[1]);
 		cv::Mat result = cv::imread(argv[1]);
 		cv::Mat rotated;
-		//rotate_by(image, rotated, 5*2);
+		//rotate_by(image, rotated, -5*4);
 		//cv::imwrite("proba9.png", rotated);
 		bool found = false;
 		std::vector<std::vector<int>> visited;
 
 ///*
 		// Processing
-		for (int iter = 0; iter < 1; ++iter) {
+		for (int iter = 0; iter < iterations; ++iter) {
+			std::cout << iter << std::endl;
 			std::vector<std::vector<int>> horizontal_lines;
 			std::vector<int> logo_borders;
 			std::vector<int> logo_bounds;
@@ -545,69 +546,35 @@ int main(int argc, char* argv[]) {
 			int last_size = visited.size();
 			while (processed_angle != true) {
 				logo_borders = get_logos_possible_borders(horizontal_lines, visited, last_size, processed_angle);
-				//std::cout << "Visited size: " << visited.size() << std::endl;
 				if (!logo_borders.empty()) {
 					logo_bounds = calculate_bounds(logo_borders);
 
 					std::vector<int> ld_square = calculate_left_down_square(logo_bounds);
-					cv::Mat left_down_corner(processed, cv::Range(ld_square[2], ld_square[3]), cv::Range(ld_square[0], ld_square[1]));
+					cv::Mat left_down_corner(tresh, cv::Range(ld_square[2], ld_square[3]), cv::Range(ld_square[0], ld_square[1]));
 					double ldc_M1 = calculate_M1(left_down_corner);
-					double ldc_M2 = calculate_M2(left_down_corner);
-					double ldc_M3 = calculate_M3(left_down_corner);
-					double ldc_M4 = calculate_M4(left_down_corner);
-					double ldc_M5 = calculate_M5(left_down_corner);
-					double ldc_M6 = calculate_M6(left_down_corner);
 					double ldc_M7 = calculate_M7(left_down_corner);
-					std::cout << "Left down M1: " << ldc_M1 << std::endl;
-					std::cout << "Left down M2: " << ldc_M2 << std::endl;
-					std::cout << "Left down M3: " << ldc_M3 << std::endl;
-					std::cout << "Left down M4: " << ldc_M4 << std::endl;
-					std::cout << "Left down M5: " << ldc_M5 << std::endl;
-					std::cout << "Left down M6: " << ldc_M6 << std::endl;
-					std::cout << "Left down M7: " << ldc_M7 << std::endl;
-					//cv::imshow("lol", left_down_corner);
-					if (ldc_M7 < 0.00700 || ldc_M7 > 0.0150) continue;
+					//std::cout << "Left down M1: " << ldc_M1 << std::endl;
+					//std::cout << "Left down M7: " << ldc_M7 << std::endl;
+					if (ldc_M1 < 0.40 || ldc_M1 > 0.76) continue;
+					if (ldc_M7 < 0.025 || ldc_M7 > 0.065) continue;
 
 
 					std::vector<int> rd_square = calculate_right_down_square(logo_bounds);
-					cv::Mat right_down_corner(processed, cv::Range(rd_square[2], rd_square[3]), cv::Range(rd_square[0], rd_square[1]));
+					cv::Mat right_down_corner(tresh, cv::Range(rd_square[2], rd_square[3]), cv::Range(rd_square[0], rd_square[1]));
 					double rdc_M1 = calculate_M1(right_down_corner);
-					double rdc_M2 = calculate_M2(right_down_corner);
-					double rdc_M3 = calculate_M3(right_down_corner);
-					double rdc_M4 = calculate_M4(right_down_corner);
-					double rdc_M5 = calculate_M5(right_down_corner);
-					double rdc_M6 = calculate_M6(right_down_corner);
 					double rdc_M7 = calculate_M7(right_down_corner);
-					std::cout << "Right down M1: " << rdc_M1 << std::endl;
-					std::cout << "Right down M2: " << rdc_M2 << std::endl;
-					std::cout << "Right down M3: " << rdc_M3 << std::endl;
-					std::cout << "Right down M4: " << rdc_M4 << std::endl;
-					std::cout << "Right down M5: " << rdc_M5 << std::endl;
-					std::cout << "Right down M6: " << rdc_M6 << std::endl;
-					std::cout << "Right down M7: " << rdc_M7 << std::endl;
-					//cv::imshow("lol", right_down_corner);
-					if (rdc_M7 < 0.00700 || rdc_M7 > 0.0150) continue;
+					//std::cout << "Right down M1: " << rdc_M1 << std::endl;
+					//std::cout << "Right down M7: " << rdc_M7 << std::endl;
+					if (rdc_M1 < 0.40 || rdc_M1 > 0.76) continue;
+					if (rdc_M7 < 0.025 || rdc_M7 > 0.065) continue;
 
 					std::vector<int> uh_rect = calculate_upper_half_rect(logo_bounds);
-					cv::Mat upper_half(processed, cv::Range(uh_rect[2], uh_rect[3]), cv::Range(uh_rect[0], uh_rect[1]));
+					cv::Mat upper_half(tresh, cv::Range(uh_rect[2], uh_rect[3]), cv::Range(uh_rect[0], uh_rect[1]));
 					double uh_M1 = calculate_M1(upper_half);
-					double uh_M2 = calculate_M2(upper_half);
-					double uh_M3 = calculate_M3(upper_half);
-					double uh_M4 = calculate_M4(upper_half);
-					double uh_M5 = calculate_M5(upper_half);
-					double uh_M6 = calculate_M6(upper_half);
-					double uh_M7 = calculate_M7(upper_half);
-					std::cout << "Upper half M1: " << uh_M1 << std::endl;
-					std::cout << "Upper half M2: " << uh_M2 << std::endl;
-					std::cout << "Upper half M3: " << uh_M3 << std::endl;
-					std::cout << "Upper half M4: " << uh_M4 << std::endl;
-					std::cout << "Upper half M5: " << uh_M5 << std::endl;
-					std::cout << "Upper half M6: " << uh_M6 << std::endl;
-					std::cout << "Upper half M7: " << uh_M7 << std::endl;
-					if (uh_M7 < 0.0120 || uh_M7 > 0.0600) continue;
+					//std::cout << "Upper half M1: " << uh_M1 << std::endl;
+					if (uh_M1 < 0.6) continue;
 
 					cv::Mat logo(processed, cv::Range(uh_rect[2], rd_square[3]), cv::Range(uh_rect[0], uh_rect[1]));
-					//cv::imshow("logo", logo);
 					double yellow_percentage = check_yellow_percentage(logo);
 					//std::cout << "Yellow percentage: " << yellow_percentage << std::endl;
 					if (yellow_percentage < 0.25) continue;
@@ -616,9 +583,6 @@ int main(int argc, char* argv[]) {
 
 					draw_bounds(result, logo_bounds);
 					fill_black(processed, logo_bounds);
-					//cv::imshow("Obrysowane znalezione logo", processed);
-					//cv::imwrite("result.png", processed);
-					//break;
 				}
 			}
 			rotate_by(processed, processed, -5*iter);
@@ -633,61 +597,13 @@ int main(int argc, char* argv[]) {
 			std::cout << "Shell logo not found!" << std::endl;
 		}
 		// Show results
-		//cv::imshow("Processed", image);
 		cv::imshow("Result", result);
 		cv::imwrite("result.png", result);
-		//cv::imshow("Shell_tresh", tmp);
-		//cv::imshow("Shell_horizontal", tmp2);
 		cv::waitKey(-1);
 		return 0;
 	} else {
-		std::cout << "Wrong file name!" << std::endl;
-		std::cout << "Usage: shell_recognition <file_name>" << std::endl;
+		std::cout << "Usage: shell_recognition <file_name> <iterations>" << std::endl;
 
 		return -1;
 	}
 }
-
-
-// nieoptymalne, zmienic na greyscale
-// nazwa: apply_filter? dodatkowy argument?
-/*  
-//const std::vector<int> HORIZONTAL_FILTER = {-1,-1,-1,
-//											 2, 2, 2,
-//											-1,-1,-1};
-
-//const std::vector<int> HORIZONTAL_FILTER2 = {2,2,2,2,2,2,2};
-
-void apply_filter(cv::Mat& inImg, cv::Mat& outImg, std::vector<int> filter) {
-	CV_Assert(inImg.depth() != sizeof(uchar));
-	cv::Mat_<cv::Vec3b> _I = inImg;
-	cv::Mat_<cv::Vec3b> Iout = outImg;
-
-	int mask_size = sqrt(filter.size());
-	int check = floor(mask_size / 2);
-
-	for (int i = check; i < _I.rows - check; ++i)
-		for (int j = check; j < _I.cols - check; ++j) {
-			std::vector<int> vec;
-			int k = i - check;
-			int count = 0;
-			for (k, count; count < mask_size; k++, count++) {
-				int l = j - check;
-				int count2 = 0;
-				for (l, count2; count2 < mask_size; l++, count2++) {
-					int pix_value;
-					pix_value = int((_I(k, l)[0] + _I(k, l)[1] + _I(k, l)[2]) / 3);
-					vec.push_back(pix_value);
-				}
-			}
-			int new_pix_value = 0;
-			for (int i = 0; i < 9; ++i) {
-				new_pix_value += filter[i] * vec[i];
-			}
-
-			Iout(i, j)[2] = new_pix_value;
-			Iout(i, j)[1] = new_pix_value;
-			Iout(i, j)[0] = new_pix_value;
-		}
-}
-*/
