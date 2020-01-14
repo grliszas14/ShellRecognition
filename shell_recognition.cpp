@@ -269,7 +269,7 @@ void rotate_by(cv::Mat& inImg, cv::Mat& outImg, int angle) {
 	//cv::imwrite("rotated_im.png", dst);
 }
 
-void remove_black_bounding(cv::Mat& inImg, cv::Mat& outImg) {
+void remove_black_bounding(cv::Mat& inImg, cv::Mat& outImg, int img_len, int img_width) {
 	CV_Assert(inImg.depth() != sizeof(uchar));
 	cv::Mat_<cv::Vec3b> _I = inImg;
 	int lx = 0, ly = 0, rx = 0, ry = 0;
@@ -281,16 +281,14 @@ void remove_black_bounding(cv::Mat& inImg, cv::Mat& outImg) {
 				lx = j;
 				ly = i;
 				fset = true;
-			}
-			else {
-				rx = j;
-				ry = i;
+				break;
 			}
 		}
+	rx = lx + img_len;
+	ry = ly + img_width;
 
 	//std::cout << lx << " " << ly << " " << rx << " " << ry << std::endl;
 	cv::Mat prepared_to_show(inImg, cv::Range(ly, ry), cv::Range(lx, rx));
-	//cv::imshow("Eloszka", prepared_to_show);
 	outImg = prepared_to_show.clone();
 }
 
@@ -545,6 +543,8 @@ int main(int argc, char* argv[]) {
 		//cv::imwrite("proba9.png", rotated);
 		bool found = false;
 		std::vector<std::vector<int>> visited;
+		int img_len = image.cols;
+		int img_width = image.rows;
 
 ///*
 		// Processing
@@ -623,7 +623,7 @@ int main(int argc, char* argv[]) {
 		}
 		// Show results
 		cv::Mat output;
-		remove_black_bounding(result, output);
+		remove_black_bounding(result, output, img_len, img_width);
 		cv::imshow("Result", output);
 		cv::imwrite("result.png", output);
 		cv::waitKey(-1);
