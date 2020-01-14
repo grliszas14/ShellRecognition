@@ -269,6 +269,31 @@ void rotate_by(cv::Mat& inImg, cv::Mat& outImg, int angle) {
 	//cv::imwrite("rotated_im.png", dst);
 }
 
+void remove_black_bounding(cv::Mat& inImg, cv::Mat& outImg) {
+	CV_Assert(inImg.depth() != sizeof(uchar));
+	cv::Mat_<cv::Vec3b> _I = inImg;
+	int lx = 0, ly = 0, rx = 0, ry = 0;
+	bool fset = false;
+	for (int i = 0; i < _I.rows; ++i)
+		for (int j = 0; j < _I.cols; ++j) {
+			if (_I(i,j)[0] == 0 && _I(i,j)[0] == 0 && _I(i,j)[0] == 0) continue;
+			else if (fset == false) {
+				lx = j;
+				ly = i;
+				fset = true;
+			}
+			else {
+				rx = j;
+				ry = i;
+			}
+		}
+
+	//std::cout << lx << " " << ly << " " << rx << " " << ry << std::endl;
+	cv::Mat prepared_to_show(inImg, cv::Range(ly, ry), cv::Range(lx, rx));
+	//cv::imshow("Eloszka", prepared_to_show);
+	outImg = prepared_to_show.clone();
+}
+
 double calculate_moment(cv::Mat& I, int p, int q) {
 	double mpq = 0;
 	cv::Mat_<cv::Vec3b> _I = I;
@@ -597,8 +622,10 @@ int main(int argc, char* argv[]) {
 			std::cout << "Shell logo not found!" << std::endl;
 		}
 		// Show results
-		cv::imshow("Result", result);
-		cv::imwrite("result.png", result);
+		cv::Mat output;
+		remove_black_bounding(result, output);
+		cv::imshow("Result", output);
+		cv::imwrite("result.png", output);
 		cv::waitKey(-1);
 		return 0;
 	} else {
