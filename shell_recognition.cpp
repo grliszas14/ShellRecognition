@@ -287,7 +287,7 @@ void remove_black_bounding(cv::Mat& inImg, cv::Mat& outImg, int img_len, int img
 	rx = lx + img_len;
 	ry = ly + img_width;
 
-	//std::cout << lx << " " << ly << " " << rx << " " << ry << std::endl;
+	std::cout << lx << " " << ly << " " << rx << " " << ry << std::endl;
 	cv::Mat prepared_to_show(inImg, cv::Range(ly, ry), cv::Range(lx, rx));
 	outImg = prepared_to_show.clone();
 }
@@ -542,9 +542,11 @@ int main(int argc, char* argv[]) {
 		//rotate_by(image, rotated, -5*4);
 		//cv::imwrite("proba9.png", rotated);
 		bool found = false;
+		bool found_in_iter = false;
 		std::vector<std::vector<int>> visited;
 		int img_len = image.cols;
 		int img_width = image.rows;
+		std::cout << img_len << " " << img_width << std::endl;
 
 ///*
 		// Processing
@@ -556,15 +558,14 @@ int main(int argc, char* argv[]) {
 
 			// Tu uporzadkowac
 			cv::Mat rotated;
-			rotate_by(image, rotated, 5*iter);
-			rotate_by(result, result, 5*iter);
+			rotate_by(image, rotated, 5);
+			rotate_by(result, result, 5);
 			cv::Mat processed = rotated.clone();
 			cv::Mat tresh = rotated.clone();
 			treshold(rotated, tresh);
 			//cv::imshow("Shell_tresh", tresh);
 			cv::imwrite("tresh.png", tresh);
 			cv::Mat tmp2 = rotated.clone();
-
 			horizontal_lines = find_horizontal_lines(tresh, tmp2);
 
 			bool processed_angle = false;
@@ -581,7 +582,7 @@ int main(int argc, char* argv[]) {
 					//std::cout << "Left down M1: " << ldc_M1 << std::endl;
 					//std::cout << "Left down M7: " << ldc_M7 << std::endl;
 					if (ldc_M1 < 0.40 || ldc_M1 > 0.76) continue;
-					if (ldc_M7 < 0.025 || ldc_M7 > 0.065) continue;
+					if (ldc_M7 < 0.015 || ldc_M7 > 0.065) continue;
 
 
 					std::vector<int> rd_square = calculate_right_down_square(logo_bounds);
@@ -591,7 +592,7 @@ int main(int argc, char* argv[]) {
 					//std::cout << "Right down M1: " << rdc_M1 << std::endl;
 					//std::cout << "Right down M7: " << rdc_M7 << std::endl;
 					if (rdc_M1 < 0.40 || rdc_M1 > 0.76) continue;
-					if (rdc_M7 < 0.025 || rdc_M7 > 0.065) continue;
+					if (rdc_M7 < 0.015 || rdc_M7 > 0.065) continue;
 
 					std::vector<int> uh_rect = calculate_upper_half_rect(logo_bounds);
 					cv::Mat upper_half(tresh, cv::Range(uh_rect[2], uh_rect[3]), cv::Range(uh_rect[0], uh_rect[1]));
@@ -605,14 +606,21 @@ int main(int argc, char* argv[]) {
 					if (yellow_percentage < 0.25) continue;
 
 					found = true;
+					found_in_iter = true;
 
 					draw_bounds(result, logo_bounds);
 					fill_black(processed, logo_bounds);
 				}
 			}
-			rotate_by(processed, processed, -5*iter);
-			rotate_by(result, result, -5*iter);
+			//rotate_by(processed, processed, -5*iter);
+			//rotate_by(result, result, -5*iter);
 			image = processed.clone();
+			//remove_black_bounding(processed, processed, img_len, img_width);
+			//remove_black_bounding(result, result, img_len, img_width);
+			//if (found_in_iter == true) {
+			//	image = processed.clone();
+			//	found_in_iter = false;
+			//}
 
 		}
 //		*/
@@ -623,7 +631,9 @@ int main(int argc, char* argv[]) {
 		}
 		// Show results
 		cv::Mat output;
-		remove_black_bounding(result, output, img_len, img_width);
+		cv::Mat unrotated;
+		rotate_by(result, unrotated, -5*iterations);
+		remove_black_bounding(unrotated, output, img_len, img_width);
 		cv::imshow("Result", output);
 		cv::imwrite("result.png", output);
 		cv::waitKey(-1);
