@@ -3,7 +3,7 @@
 #include <cmath>
 #include "opencv2/core/core.hpp"
 #include "opencv2/highgui/highgui.hpp"
-#include "opencv2/opencv.hpp"  //getRotationMatrix2D, warpAffine
+#include "opencv2/opencv.hpp"  // getRotationMatrix2D, warpAffine
 
 // RGB
 const int RED_TRESH[3] = {100, 80, 80};
@@ -36,24 +36,10 @@ double check_yellow_percentage(cv::Mat& inImg) {
 
 	for( int i = 0; i < (inImg.rows); ++i)
 		for (int j = 0; j < (inImg.cols); ++j) {
-			//std::cout << "R:" << int(_I(i, j)[2]) << " G:" << int(_I(i, j)[1]) << " B:" << int(_I(i, j)[0]) << std::endl;
 			if (_I(i, j)[2] > YELLOW_TRESH[0] && _I(i, j)[1] > YELLOW_TRESH[1] &&  _I(i, j)[0] < YELLOW_TRESH[2]) {
 				count_yellow_pixels++;
 			}
 		}
-	/*  TO SAMO W HSV
-	cv::Mat HSV;
-	cv::cvtColor(inImg, HSV, CV_BGR2HSV);
-	for( int i = 0; i < (HSV.rows); ++i)
-		for (int j = 0; j < (HSV.cols); ++j) {
-			//std::cout << "R:" << int(_I(i, j)[2]) << " G:" << int(_I(i, j)[1]) << " B:" << int(_I(i, j)[0]) << std::endl;
-			if (_I(i, j)[0] > 28 && _I(i, j)[0] > 33) {
-				count_yellow_pixels++;
-			}
-		}
-*/
-	//std::cout << "Yellow pixels: " << count_yellow_pixels << std::endl;
-	//std::cout << "All pixels: " << pixels << std::endl;
 	return count_yellow_pixels / pixels;
 }
 
@@ -96,17 +82,12 @@ std::vector<std::vector<int>> find_horizontal_lines(cv::Mat& inImg, cv::Mat& out
 			}
 		}
 	}
-	//for (int i = 0; i < lines.size(); ++i) {
-	//	std::cout << "I: " << lines[i][0] << " Length of line: " << lines[i][2] << std::endl;
-	//}
+
 	return lines;
 }
 
 std::vector<int> get_logos_possible_borders(std::vector<std::vector<int>> lines,
 		std::vector<std::vector<int>> &visited, int &last_size, bool &processed_angle) {
-	//for (int i = 0; i < lines.size(); ++i) {
-	//	std::cout << "I: " << lines[i][0] << " Begin: " << lines[i][1] << " Length of line: " << lines[i][2] << std::endl;
-	//}
 
 	int start_flag = -1;
 	int tmp_length = 0;
@@ -156,16 +137,8 @@ std::vector<int> get_logos_possible_borders(std::vector<std::vector<int>> lines,
 			iter = i+1;
 			start_flag = 0;
 		}
-
-		// ogarnac przypadek kiedy na jednej linii sa dwa prawdopodobne loga
-		// (czyli tu else w trakcie, albo kolejnego szukac w liniach ponizej)
-
 	}
-	//if (visited.size() == 6) {
-	//	processed_angle = true;
-	//}
 	if (last_size == visited.size()) {
-		//std::cout << "END this angle" << std::endl;
 		processed_angle = true;
 	}
 
@@ -174,16 +147,10 @@ std::vector<int> get_logos_possible_borders(std::vector<std::vector<int>> lines,
 	if (tmp_thickness < MIN_THICKNESS) {
 		return b_rbl_tr;
 	}
-	//std::cout << " " << std::endl;
-	//std::cout << "I: " << tmp_row << " Begin: " << tmp_begin << " Length of line: "
-		//<< tmp_length << " Thickness: " << tmp_thickness << std::endl;
 
 	int probable_bottom_line = tmp_thickness * 11;
 	int lower_row_bound = tmp_row - tmp_thickness + probable_bottom_line - probable_bottom_line*10/100;
 	int upper_row_bound = tmp_row - tmp_thickness + probable_bottom_line + probable_bottom_line*10/100;
-	//std::cout << "Lower row bound: " << lower_row_bound << std::endl;
-	//std::cout << "Upper row bound: " << upper_row_bound << std::endl;
-	// bottom_row_begin_length_tmp_row
 	for (int i = 0; i < lines.size()-1; ++i) {
 		int double_line = 0;
 		if (lines[i][0] == lines[i+1][0] && lines[i+1][1] < (lines[i][1] + int(lines[i][2] * 1.5))) {
@@ -191,7 +158,7 @@ std::vector<int> get_logos_possible_borders(std::vector<std::vector<int>> lines,
 		} else {
 			double_line = lines[i][2];
 		}
-		if (lines[i][0] > (lower_row_bound) /*  && lines[i][0] < (upper_row_bound)*/ &&
+		if (lines[i][0] > (lower_row_bound) &&
 			   	lines[i][1] > (tmp_begin - tmp_begin*20/100) &&
 				lines[i][1] < (tmp_begin + tmp_begin*10/100) &&
 			   	double_line > tmp_length) {
@@ -200,14 +167,12 @@ std::vector<int> get_logos_possible_borders(std::vector<std::vector<int>> lines,
 			b_rbl_tr.push_back(double_line);
 			b_rbl_tr.push_back(tmp_row);
 
-			//std::cout << "I: " << lines[i][0] << " Begin: " << lines[i][1] << " Length of line: " << lines[i][2] << std::endl;
 			return b_rbl_tr;
 		}
 	}
 }
 
 std::vector<int> calculate_bounds(std::vector<int> factors) {
-	// Calculate borders
 	int width = factors[2];
 	int height = factors[0] - factors[3];
 	int left_x = factors[1] - width*35/100;
@@ -264,9 +229,7 @@ void rotate_by(cv::Mat& inImg, cv::Mat& outImg, int angle) {
 	rot.at<double>(0,2) += bbox.width/2.0 - src.cols/2.0;
 	rot.at<double>(1,2) += bbox.height/2.0 - src.rows/2.0;
 
-	//cv::Mat dst;
 	cv::warpAffine(src, outImg, rot, bbox.size());
-	//cv::imwrite("rotated_im.png", dst);
 }
 
 void remove_black_bounding(cv::Mat& inImg, cv::Mat& outImg, int img_len, int img_width) {
@@ -287,7 +250,6 @@ void remove_black_bounding(cv::Mat& inImg, cv::Mat& outImg, int img_len, int img
 	rx = lx + img_len;
 	ry = ly + img_width;
 
-	std::cout << lx << " " << ly << " " << rx << " " << ry << std::endl;
 	cv::Mat prepared_to_show(inImg, cv::Range(ly, ry), cv::Range(lx, rx));
 	outImg = prepared_to_show.clone();
 }
@@ -539,32 +501,24 @@ int main(int argc, char* argv[]) {
 		cv::Mat image = cv::imread(argv[1]);
 		cv::Mat result = cv::imread(argv[1]);
 		cv::Mat rotated;
-		//rotate_by(image, rotated, -5*4);
-		//cv::imwrite("proba9.png", rotated);
 		bool found = false;
 		bool found_in_iter = false;
 		std::vector<std::vector<int>> visited;
 		int img_len = image.cols;
 		int img_width = image.rows;
-		std::cout << img_len << " " << img_width << std::endl;
 
-///*
 		// Processing
 		for (int iter = 0; iter < iterations; ++iter) {
-			std::cout << iter << std::endl;
 			std::vector<std::vector<int>> horizontal_lines;
 			std::vector<int> logo_borders;
 			std::vector<int> logo_bounds;
 
-			// Tu uporzadkowac
 			cv::Mat rotated;
 			rotate_by(image, rotated, 5);
 			rotate_by(result, result, 5);
 			cv::Mat processed = rotated.clone();
 			cv::Mat tresh = rotated.clone();
 			treshold(rotated, tresh);
-			//cv::imshow("Shell_tresh", tresh);
-			cv::imwrite("tresh.png", tresh);
 			cv::Mat tmp2 = rotated.clone();
 			horizontal_lines = find_horizontal_lines(tresh, tmp2);
 
@@ -612,23 +566,15 @@ int main(int argc, char* argv[]) {
 					fill_black(processed, logo_bounds);
 				}
 			}
-			//rotate_by(processed, processed, -5*iter);
-			//rotate_by(result, result, -5*iter);
 			image = processed.clone();
-			//remove_black_bounding(processed, processed, img_len, img_width);
-			//remove_black_bounding(result, result, img_len, img_width);
-			//if (found_in_iter == true) {
-			//	image = processed.clone();
-			//	found_in_iter = false;
-			//}
 
 		}
-//		*/
 		if (found) {
 			std::cout << "Shell logo found!" << std::endl;
 		} else {
 			std::cout << "Shell logo not found!" << std::endl;
 		}
+
 		// Show results
 		cv::Mat output;
 		cv::Mat unrotated;
